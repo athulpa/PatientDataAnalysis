@@ -1,0 +1,317 @@
+---
+title: "Analysis of Hospitalized Patient Data"
+author: "Athul Prakash"
+date: "30/11/2021"
+output:
+  pdf_document: default
+  html_document: default
+rollno: MDS202111
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+## Import data
+library(ggplot2)
+setwd("/Users/athul/c_visu")
+data = read.csv("data01.csv")
+cnames = c("age", "gendera", "BMI", "heart.rate", "Diastolic.blood.pressure", "diabetes", "Renal.failure", "Lymphocyte", "Neutrophils", "Urea.nitrogen", "outcome")
+data=data[,cnames]
+
+# Remove patient with unknown outcome
+data = data[-1160,]
+
+## Factor renaming
+data$gendera[data$gendera==1]="M"
+data$gendera[data$gendera==2]="F"
+data$gendera = factor(data$gendera)
+
+data$outcome[data$outcome==1]="YES"
+data$outcome[data$outcome==0]="NO"
+data$outcome = factor(data$outcome)
+
+data$diabetes[data$diabetes==1]="YES"
+data$diabetes[data$diabetes==0]="NO"
+data$diabetes = factor(data$diabetes)
+
+data$Renal.failure[data$Renal.failure==1]="YES"
+data$Renal.failure[data$Renal.failure==0]="NO"
+data$Renal.failure = factor(data$Renal.failure)
+```
+
+# Introduction
+We are presented with demographic data and clinical test data of 1177 patients with heart-failure, who were admitted to the ICU of a teaching hospital in Boston, Massachusetts. The data was sourced from the MIMIC-III database.  
+Our aim is to explore the patient data we have and summarize it visually.
+
+## Data Description
+The following data is a subset extracted from the MIMIC-III database, of ICU-admitted Heart-Failure patients. There are 11 variables of 1177 patients. The data collected includes demographic data, such as age and gender, as well as clinically measured data, such as Blood Pressure, Heart-Rate and Urea-Nitrogen concentration. The outcome of the treatment is whether the patient succumbed or survived while in ICU care.
+
+The variables are summarized below. All of them are numeric type.
+
+```{r, include=FALSE}
+types = c("Discrete - Count", "Categorical - Nominal (Dichotomous)", "Continuous", "Continuous", "Continuous", "Categorical - Nominal (Dichotomous)", "Categorical - Nominal (Dichotomous)", "Continuous", "Continuous", "Continuous", "Categorical - Nominal (Dichotomous)")
+quant = c("Age of the Patient", "Gender (M/F)", "Body Mass Index", "Heart beats per minute", "Blood Pressure", "Having Diabetes (YES/NO)", "Having renal failure (YES/NO)", "Blood lymphocyte count", "Blood neutrophil count", "Blood Urea Nitrogen level", "Patient Mortality while admitted (YES/NO)")
+summ = data.frame(VariableName=cnames, Type=types, MeasuredQuantity=quant)
+```
+
+```{r}
+knitr::kable(summ)
+```
+Note:-  
+* Gender: Male=1, Female=2  
+* Outcome: Survived=0, Died=1  
+* BMI = height/(weight^2) in m/kg^2  
+* Renal Failure: YES=1, NO=1  
+* Diabetes: YES=1, NO=0  
+ 
+## Data Source Description
+The MIMIC-III database (version 1.4, 2016) is a publicly available critical care database containing de-identified data on 46,520 patients and 58,976 admissions to the ICU of the Beth Israel Deaconess Medical Center, Boston, USA, between 1 June, 2001 and 31 October, 2012.  
+These data include comprehensive information, such as demographics, admitting notes, International Classification of Diseases-9th revision (ICD-9) diagnoses, laboratory tests, medications, procedures, fluid balance, discharge summaries, vital sign measurements undertaken at the bedside, caregivers notes, radiology reports, and survival data12.  
+The MIMIC data is available to those who complete a web-based training course of the same institute.
+
+## Data Challenges
+ - The data was collected manually by combining records from different departments and procedures. For this reason, not all variables have been measured for all individuals. Thus, there are many NAs for each column, as is common for medical databases,
+ 
+ - The MIMIC-III database is available only after obtaining a certificate of training in the use of medical data. Since our data is a subset of the MIMIC database, we could not source the descriptions of the quantities being measured. As such, variables such as Neutrophil count are presented without knowing the real-world units.
+ 
+## Univariate Analysis
+### Discrete Variable - Age
+
+A quick look at summary statistics reveals :-
+```{r}
+summary(data$age)
+```
+  
+* The mean age is 74 years with a median of 77 years.
+* This indicates a relatively old population, which could be expected for ICU admissions.
+```{r}
+sd(data$age)
+```
+  
+* The standard deviation is 13.43 years
+
+
+For a deeper look, we can consider age brackets with 5 year gap. 
+The following histogram shows the number of people in each age bracket, with density overlaid.
+
+```{r}
+ggplot(data=data) + geom_histogram(mapping=aes(x=age), breaks = seq(15,105,by=5), fill="steelblue") +
+  geom_density(mapping=aes(x=age, y=..density..*7000))
+```
+  
+  * We can summarize that the frequency increases with increasing age till 90 years and then sharply declines.
+  
+### Categorical Variables
+  
+For dichotomous variables, we can show the comparative frequencies of each using a histogram.
+
+We have 4 categorical variables
+  
+* Gender
+* Diabetic
+* Renal Failure
+* Mortality
+
+#### Gender  
+```{r,include=FALSE}
+mcount = sum(data$gendera=="M")
+fcount = sum(data$gendera=="F")
+cat("Male: ", mcount, " (", round(mcount/11.76,1)," %)\n", sep="")
+cat("Female: ", fcount, " (", round(fcount/11.76,1)," %)\n", sep="")
+```
+We can visualize the same in a histogram.
+```{r}
+ggplot(data=data) + layer(mapping = aes(x=gendera,fill=gendera), stat="count", geom="bar", position="identity") +
+  labs(x="Gender", y="Count", title="Gender")
+```
+  
+#### Mortality  
+```{r,include=FALSE}
+morts = sum(data$outcome=="YES")
+lives = sum(data$outcome=="NO")
+cat("Deceased: ", morts, " (", round(morts/11.76,1)," %)\n", sep="")
+cat("Survived: ", lives, " (", round(lives/11.76,1)," %)\n", sep="")
+```
+We can visualize the same in a histogram.
+```{r}
+ggplot(data=data) + layer(mapping = aes(x=outcome,fill=outcome), stat="count", geom="bar", position="identity") +
+  labs(x="Deceased", y="Count", title="Mortality")
+```
+  
+   
+#### Diabetes  
+```{r,include=FALSE}
+pos = sum(data$diabetes=="YES")
+neg = sum(data$diabetes=="NO")
+cat("YES: ", pos, " (", round(pos/11.76,1)," %)\n", sep="")
+cat("NO: ", neg, " (", round(neg/11.76,1)," %)\n", sep="")
+```
+  
+We can visualize the same in a histogram.
+```{r}
+ggplot(data=data) + layer(mapping = aes(x=diabetes,fill=diabetes), stat="count", geom="bar", position="identity") +
+  labs(x="Has Diabetes", y="Count", title="Diabetes")
+```
+  
+#### Renal Failure  
+```{r,include=FALSE}
+pos = sum(data$Renal.failure=="YES")
+neg = sum(data$Renal.failure=="NO")
+cat("YES: ", pos, " (", round(pos/11.76,1)," %)\n", sep="")
+cat("NO: ", neg, " (", round(neg/11.76,1)," %)\n", sep="")
+```
+  
+We can visualize the same in a histogram.
+```{r}
+ggplot(data=data) + layer(mapping = aes(x=Renal.failure,fill=Renal.failure), stat="count", geom="bar", position="identity") +
+  labs(x="Renal Failure Occurred", y="Count", title="Renal Failure")
+```
+
+### Blood Pressure
+  
+We can plot the boxplot summarizing BMI
+```{r}
+ggplot(data=data, mapping=aes(x=BMI)) + geom_boxplot()
+```
+  
+The mean and median are as follows:
+```{r}
+summary(data$BMI)
+```
+
+  
+### Heart Rate
+  
+The mean and median are as follows:
+```{r}
+summary(data$heart.rate)
+```
+  
+We can plot the boxplot summarizing Heart Rate
+```{r}
+ggplot(data=data, mapping=aes(x=heart.rate)) + geom_boxplot()
+```
+
+
+### Urea Nitrogen
+
+We can plot the boxplot summarizing Urea Nitrogen Level
+```{r}
+ggplot(data=data, mapping=aes(x=Urea.nitrogen)) + geom_boxplot()
+```
+  
+  
+## Mutlivariate Analysis
+
+### Demographic Data - Age + Gender
+
+The following population pyramid summarizes the frequency of each gender among age brackets of 5 years' span.
+
+```{r}
+ggplot() +
+  layer(data = data[data$gendera=="M",], geom="bar", stat="bin", position = "identity", mapping=aes(y=age, x=..count..), params=list(binwidth=5,fill="maroon")) +
+  layer(data = data[data$gendera=="F",], geom="bar", stat="bin", position = "identity", mapping=aes(y=age, x=-..count..), params=list(binwidth=5,fill="blue")) + 
+  ggtitle("Population Pyramid (Females - Left, Males - Right)") + 
+  ylab("Frequency of Age") +
+ xlab("Count")
+```
+
+### Renal Failure vs Mortality
+  
+Looking at the raw distribution  
+* Renal Failure along rows, Mortality along columns
+```{r}
+table(data$Renal.failure, data$outcome)
+```
+
+Performing a Chi-Squared analysis to establish correlation:
+```{r}
+chisq.test(data$Renal.failure, data$outcome, correct=FALSE)
+```
+A p-value less than 0.05 with a high X-squared value indicates a strong correlation b/w Renal failure and mortality.
+  
+We can plot the histograms of outcome for the groups with and without Renal Failure
+```{r}
+ggplot(data=data) + geom_histogram(mapping=aes(x=Renal.failure, fill=outcome), stat="count") +
+  ggtitle("Without Renal Failure vs With Renal Failure")
+```
+
+### Gender vs Mortality
+  
+Looking at the raw distribution  
+* Gender along rows, Mortality along columns
+```{r}
+table(data$gendera, data$outcome)
+```
+
+Performing a Chi-Squared analysis to establish correlation:
+```{r}
+chisq.test(data$gendera, data$outcome, correct=FALSE)
+```
+Thus, mortality is largely independent of gender.
+  
+We can plot the hi
+```{r}
+ggplot(data=data) + geom_histogram(mapping=aes(x=outcome, fill=outcome), stat="count") + facet_wrap(data$gendera) +
+  ggtitle("Female(left) vs Male(right) mortality")
+```
+  
+  
+### Age vs BMI
+We can draw a scatterplot to investigate any relationship b/w these variables
+```{r}
+ggplot(data=data) + geom_point(mapping=aes(x=age,y=BMI), color="red")
+```
+There is a moderate correlation.
+Particularly, we can see that young patients have a large variance in BMI whereas older patients have a uniform and lower average BMI.  
+
+  
+We can split our dataset to observe the data separately for younger and older patients
+```{r}
+ggplot(data=data) + geom_point(mapping=aes(x=age,y=BMI), color="blue") + facet_wrap(data$age<70) +
+  ggtitle("Age vs BMI for Age < 70 (left) and Age > 70 (right)")
+```
+### Neutrophils vs Lymphocytes (and outcome)
+  
+We can make a scatterplot overlaid with a smoothing line
+```{r}
+ggplot(data=data, mapping=aes(x=Lymphocyte, y=Neutrophils)) + geom_point(color="red") + geom_smooth() +
+  ggtitle("Neutrophil level vs Lymphocyte level")
+```
+  
+Undoubtedly, Blood Neutrophil levels drop steadily and linearly with Blood Lymphocyte levels.
+  
+Furthermore...  
+In medical investigations, the ratio of Neutrophils to Lymphocytes is often used as a predictor of a patient's health condition.
+With this motivation, we can investigate the impact of outcome on the correlation.
+  
+Let us color the scatterplot differently for surviving and deceased patients.
+```{r}
+ggplot(data=data) + geom_point(mapping=aes(x=Lymphocyte,y=Neutrophils, color=outcome))
+```
+
+Nexy, We separate the plots and facet as follows
+```{r}
+ggplot(data=data) + geom_point(mapping=aes(x=Lymphocyte,y=Neutrophils),color="red") + facet_wrap(data$outcome) +
+  ggtitle("Survived(left) vs Deceased(right)")
+```
+
+## Conclusions
+We investigated the patient variables and their dependencies from the MIMIC-III dataset.  
+* Age was found to have a marked effect on a person's BMI.
+* Neutrophils and Lymphocytes have a strong dependence
+* Most of the variables are independent and show no relationship with each other.
+
+### Domain Learning
+  
+* Neutrophils and Lymphocytes are examples of White Blood Cells
+* Neutrophil-Lymphocyte ratio is used as a measure of 
+* Medical science is replete with opportunities to make an impact with data analysis.
+* The MIMIC-III dataset is an example of a large medical database of clinical treatments.
+* More data can be obtained from physionet.org
+
+### Future Ideas
+  
+* Use a linear/logistic regression model to predict mortality from the other variables.
+* Add a variable of Neutrophil-Lymphocyte ratio and demonstrate a correlation with patient mortality.
+* Use the MIMIC-III full database and compare to the results from this subset.
